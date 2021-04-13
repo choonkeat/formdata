@@ -29,7 +29,6 @@ type alias Flags =
 type Msg
     = OnInput UserFields String
     | OnCheck UserFields String Bool
-    | OnRadio UserFields String Bool
 
 
 init : Flags -> ( Model, Cmd Msg )
@@ -135,11 +134,6 @@ update msg model =
 
         OnCheck k v bool ->
             ( { model | userForm = FormData.toggleValue k v bool model.userForm }
-            , Cmd.none
-            )
-
-        OnRadio k v _ ->
-            ( { model | userForm = FormData.setValue k v model.userForm }
             , Cmd.none
             )
 
