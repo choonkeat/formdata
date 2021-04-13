@@ -1,9 +1,7 @@
 module FormData exposing
     ( init, Config, FormData
     , checked, error, inputValue
-    , onInput, parsed
-    -- , onCheck
-    -- , submitting
+    , setValue, toggleValue, parsed
     )
 
 {-| Manage the state of a form
@@ -21,11 +19,12 @@ module FormData exposing
 
 ## Update
 
-@docs onInput, parsed
+@docs setValue, toggleValue, parsed
 
 -}
 
 import Dict exposing (Dict)
+import Set exposing (Set)
 
 
 {-| `FormData` stores input values in `Dict` and thus need the programmer
@@ -51,7 +50,6 @@ type FormData k a err comparable
         , data : Maybe a
         , errors : Errors comparable err
         , config : Config k a err comparable
-        , submitting : Bool
         }
 
 
@@ -78,22 +76,22 @@ init config newRaw =
         , data = newData
         , errors = Dict.fromList (List.map (Tuple.mapFirst config.fromKey) newErrors)
         , config = config
-        , submitting = False
         }
 
 
-{-| Updates the state based on incoming user input. The incoming value is stored as-is
+{-| For handling `onInput`; updates the state based on incoming user input.
+The incoming value is stored as-is
 
     update msg model =
         case msg of
             InputEmail v ->
-                ( { model | userForm = FormData.onInput Email v model.userForm }
+                ( { model | userForm = FormData.setValue Email v model.userForm }
                 , Cmd.none
                 )
 
 -}
-onInput : k -> String -> FormData k a err comparable -> FormData k a err comparable
-onInput k v (FormData ({ config } as formdata)) =
+setValue : k -> String -> FormData k a err comparable -> FormData k a err comparable
+setValue k v (FormData ({ config } as formdata)) =
     let
         newRaw =
             Dict.insert (formdata.config.fromKey k) v formdata.raw
@@ -111,10 +109,60 @@ onInput k v (FormData ({ config } as formdata)) =
         }
 
 
-onCheck : k -> String -> Bool -> FormData k a err comparable -> FormData k a err comparable
-onCheck k v bool (FormData ({ config } as formdata)) =
-    -- might need to change `type alias RawData comparable = Dict comparable (Set String)` ?
-    Debug.todo "onCheck v membership for field k"
+toMulti : String -> Set String
+toMulti =
+    String.split "\u{000D}\u{000D}" >> Set.fromList
+
+
+fromMulti : a -> Set comparable -> (a -> Set comparable -> Set String) -> String
+fromMulti v set addremove =
+    set
+        |> addremove v
+        |> Set.toList
+        |> String.join "\u{000D}\u{000D}"
+
+
+{-| For handling `onCheck`; stores multiple values for a single `k`
+
+NOTE: we use \\r\\r as delimiter to manage multiple values
+
+-}
+toggleValue : k -> String -> Bool -> FormData k a err comparable -> FormData k a err comparable
+toggleValue k v bool (FormData ({ config } as formdata)) =
+    let
+        index =
+            formdata.config.fromKey k
+
+        newRaw =
+            case ( bool, Maybe.map toMulti (Dict.get index formdata.raw) ) of
+                ( True, Just list ) ->
+                    Dict.insert index (fromMulti v list Set.insert) formdata.raw
+
+                ( True, Nothing ) ->
+                    Dict.insert index v formdata.raw
+
+                ( False, Just list ) ->
+                    case fromMulti v list Set.remove of
+                        "" ->
+                            Dict.remove index formdata.raw
+
+                        newV ->
+                            Dict.insert index newV formdata.raw
+
+                ( False, Nothing ) ->
+                    formdata.raw
+
+        ( newData, newErrors ) =
+            Dict.toList newRaw
+                |> List.map (Tuple.mapFirst config.toKey)
+                |> config.parseData
+    in
+    FormData
+        { formdata
+            | raw = newRaw
+            , data = newData
+            , errors = Dict.fromList (List.map (Tuple.mapFirst config.fromKey) newErrors)
+        }
 
 
 {-| What's the data we've parsed from user input, if any?
@@ -178,7 +226,6 @@ inputValue k (FormData ({ config } as formdata)) =
 -}
 checked : k -> String -> FormData k a err comparable -> Bool
 checked k v (FormData ({ config } as formdata)) =
-    -- could change depending on implementation of `onCheck`
-    Dict.get (config.fromKey k) formdata.raw
-        |> Maybe.map ((==) v)
+    Maybe.map toMulti (Dict.get (formdata.config.fromKey k) formdata.raw)
+        |> Maybe.map (Set.member v)
         |> Maybe.withDefault False
