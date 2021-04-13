@@ -1,24 +1,35 @@
 module FormData exposing
-    ( Config
-    , FormData
-    , checked
-    , error
-    , init
-    , inputValue
-    , onInput
-    ,  parsed
-       -- , onCheck
-       -- , submitting
-
+    ( init, Config, FormData
+    , checked, error, inputValue
+    , onInput, parsed
+    -- , onCheck
+    -- , submitting
     )
 
 {-| Manage the state of a form
+
+
+## Types
+
+@docs init, Config, FormData
+
+
+## View
+
+@docs checked, error, inputValue
+
+
+## Update
+
+@docs onInput, parsed
+
 -}
 
 import Dict exposing (Dict)
 
 
-{-| Parse, don't validate
+{-| `FormData` stores input values in `Dict` and thus need the programmer
+to provide functions to parse, don't validate, the raw user input
 -}
 type alias Config k a err comparable =
     { fromKey : k -> comparable
@@ -27,6 +38,13 @@ type alias Config k a err comparable =
     }
 
 
+{-| The type that holds all the state.
+
+    type Model =
+        { userForm = FormData UserFields User String String
+        }
+
+-}
 type FormData k a err comparable
     = FormData
         { raw : RawData comparable
@@ -47,6 +65,8 @@ type alias Errors comparable err =
     Dict comparable err
 
 
+{-| The types parsed by Config will determine what types we are managing here
+-}
 init : Config k a err comparable -> List ( k, String ) -> FormData k a err comparable
 init config newRaw =
     let
@@ -102,6 +122,9 @@ onCheck k v bool (FormData ({ config } as formdata)) =
 This value can be used to determine if we should enable or disable the submit button
 
     button [ disabled (parsed == Nothing) ] [ text "Submit" ]
+
+Ultimately, we'll need a `Just a` from here to pass to other parts of our system,
+e.g. encoding into json to submit to the database
 
 -}
 parsed : FormData k a err comparable -> Maybe a
