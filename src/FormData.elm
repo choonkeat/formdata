@@ -1,9 +1,19 @@
 module FormData exposing
     ( Config
     , FormData
+    , checked
+    , error
     , init
+    , inputValue
     , onInput
+    ,  parsed
+       -- , onCheck
+       -- , submitting
+
     )
+
+{-| Manage the state of a form
+-}
 
 import Dict exposing (Dict)
 
@@ -52,6 +62,16 @@ init config newRaw =
         }
 
 
+{-| Updates the state based on incoming user input. The incoming value is stored as-is
+
+    update msg model =
+        case msg of
+            InputEmail v ->
+                ( { model | userForm = FormData.onInput Email v model.userForm }
+                , Cmd.none
+                )
+
+-}
 onInput : k -> String -> FormData k a err comparable -> FormData k a err comparable
 onInput k v (FormData ({ config } as formdata)) =
     let
@@ -71,11 +91,71 @@ onInput k v (FormData ({ config } as formdata)) =
         }
 
 
+onCheck : k -> String -> Bool -> FormData k a err comparable -> FormData k a err comparable
+onCheck k v bool (FormData ({ config } as formdata)) =
+    -- might need to change `type alias RawData comparable = Dict comparable (Set String)` ?
+    Debug.todo "onCheck v membership for field k"
+
+
+{-| What's the data we've parsed from user input, if any?
+
+This value can be used to determine if we should enable or disable the submit button
+
+    button [ disabled (parsed == Nothing) ] [ text "Submit" ]
+
+-}
 parsed : FormData k a err comparable -> Maybe a
 parsed (FormData formdata) =
     formdata.data
 
 
+{-| What's the error for form field `k`, if any?
+
+    -- we can tag an error message next to our form fields
+    descriptionField =
+        div []
+            [ textarea [] []
+            , maybeErrorMessage (FormData.error LongDescription formData)
+            ]
+
+    -- a helper function like this can help
+    maybeErrorMessage maybeStr =
+        case maybeStr of
+            Just s ->
+                p [ class "error" ] [ text s ]
+
+            Nothing ->
+                text ""
+
+-}
 error : k -> FormData k a err comparable -> Maybe err
 error k (FormData ({ config } as formdata)) =
     Dict.get (config.fromKey k) formdata.errors
+
+
+{-| What's `value` that we should set for form element of field `k`, if any?
+
+    input [ value (FormData.inputValue ShortBio formData) ] []
+
+-}
+inputValue : k -> FormData k a err comparable -> String
+inputValue k (FormData ({ config } as formdata)) =
+    Dict.get (config.fromKey k) formdata.raw
+        |> Maybe.withDefault ""
+
+
+{-| Is `v` the current option chosen for field `k`?
+
+    input
+        [ checked (FormData.checked Hobby Soccer formData)
+        , onCheck (HobbyChecked Soccer)
+        ]
+        []
+
+-}
+checked : k -> String -> FormData k a err comparable -> Bool
+checked k v (FormData ({ config } as formdata)) =
+    -- could change depending on implementation of `onCheck`
+    Dict.get (config.fromKey k) formdata.raw
+        |> Maybe.map ((==) v)
+        |> Maybe.withDefault False
