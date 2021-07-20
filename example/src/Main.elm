@@ -2,9 +2,9 @@ module Main exposing (..)
 
 import Browser
 import FormData exposing (FormData)
-import Html exposing (Html, div, input, label, option, p, pre, select, text)
-import Html.Attributes exposing (checked, href, name, placeholder, rel, selected, type_, value)
-import Html.Events exposing (onCheck, onInput)
+import Html exposing (Html, button, div, input, label, option, p, pre, select, small, text)
+import Html.Attributes exposing (checked, disabled, href, name, placeholder, rel, selected, type_, value)
+import Html.Events exposing (onCheck, onInput, onSubmit)
 
 
 main : Program Flags Model Msg
@@ -18,7 +18,7 @@ main =
 
 
 type alias Model =
-    { userForm : FormData UserFields User String Int
+    { userForm : FormData UserFields User
     }
 
 
@@ -28,18 +28,14 @@ type alias Flags =
 
 type Msg
     = OnInput UserFields String
-    | OnCheck UserFields String Bool
+    | OnCheck UserFields Bool
+    | Save User
 
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
     ( { userForm =
-            FormData.init
-                { fromKey = fromKey
-                , toKey = toKey
-                , parseData = parseData
-                }
-                []
+            FormData.init stringUserFields []
       }
     , Cmd.none
     )
@@ -47,6 +43,10 @@ init flags =
 
 view : Model -> Html Msg
 view model =
+    let
+        ( maybeUser, errors ) =
+            FormData.parse parseDontValidate model.userForm
+    in
     div []
         [ Html.node "link"
             [ rel "stylesheet"
@@ -55,6 +55,12 @@ view model =
             []
         , p []
             [ input [ onInput (OnInput Name), type_ "text", placeholder "Name" ] []
+            , case List.head (List.filter (\( k, v ) -> k == Just Name) errors) of
+                Just ( _, err ) ->
+                    p [] [ small [] [ text err ] ]
+
+                Nothing ->
+                    text ""
             ]
         , p []
             [ input [ onInput (OnInput Age), type_ "number", placeholder "Age" ] []
@@ -62,8 +68,8 @@ view model =
         , p []
             [ select [ onInput (OnInput Location) ]
                 [ option [ value "" ] [ text " -- Location -- " ]
-                , option [ selected (FormData.checked Location "Singapore" model.userForm) ] [ text "Singapore" ]
-                , option [ selected (FormData.checked Location "US" model.userForm) ] [ text "US" ]
+                , option [ selected (FormData.value Location model.userForm == "Singapore") ] [ text "Singapore" ]
+                , option [ selected (FormData.value Location model.userForm == "US") ] [ text "US" ]
                 ]
             ]
         , p []
@@ -72,7 +78,7 @@ view model =
                     [ onInput (OnInput Location)
                     , value "Singapore"
                     , type_ "radio"
-                    , checked (FormData.checked Location "Singapore" model.userForm)
+                    , checked (FormData.value Location model.userForm == "Singapore")
                     , name "Location"
                     ]
                     []
@@ -83,7 +89,7 @@ view model =
                     [ onInput (OnInput Location)
                     , value "US"
                     , type_ "radio"
-                    , checked (FormData.checked Location "US" model.userForm)
+                    , checked (FormData.value Location model.userForm == "US")
                     , name "Location"
                     ]
                     []
@@ -93,34 +99,55 @@ view model =
         , p []
             [ label []
                 [ input
-                    [ onCheck (OnCheck Hobbies "Soccer")
+                    [ onCheck (OnCheck (Hobbies Soccer))
                     , type_ "checkbox"
-                    , checked (FormData.checked Hobbies "Soccer" model.userForm)
+                    , checked (FormData.isChecked (Hobbies Soccer) model.userForm)
                     ]
                     []
                 , text " Soccer "
                 ]
             , label []
                 [ input
-                    [ onCheck (OnCheck Hobbies "Basketball")
+                    [ onCheck (OnCheck (Hobbies Basketball))
                     , type_ "checkbox"
-                    , checked (FormData.checked Hobbies "Basketball" model.userForm)
+                    , checked (FormData.isChecked (Hobbies Basketball) model.userForm)
                     ]
                     []
                 , text " Basketball "
                 ]
             , label []
                 [ input
-                    [ onCheck (OnCheck Hobbies "Crochet")
+                    [ onCheck (OnCheck (Hobbies Crochet))
                     , type_ "checkbox"
-                    , checked (FormData.checked Hobbies "Crochet" model.userForm)
+                    , checked (FormData.isChecked (Hobbies Crochet) model.userForm)
                     ]
                     []
                 , text " Crochet "
                 ]
+            , case List.head (List.filter (\( k, v ) -> k == Nothing) errors) of
+                Just ( _, err ) ->
+                    p [] [ small [] [ text err ] ]
+
+                Nothing ->
+                    text ""
             ]
-        , pre [] [ text (Debug.toString (FormData.parsed model.userForm)) ]
-        , pre [] [ text (Debug.toString model) ]
+        , p []
+            [ button
+                [ case maybeUser of
+                    Just user ->
+                        onSubmit (Save user)
+
+                    Nothing ->
+                        disabled True
+                ]
+                [ text "Submit" ]
+            ]
+        , pre []
+            [ text ("FormData.parse parseDontValidate model.userForm\n--> " ++ Debug.toString ( maybeUser, errors ))
+            ]
+        , pre []
+            [ text ("model.userForm\n--> " ++ Debug.toString model)
+            ]
         ]
 
 
@@ -128,14 +155,17 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         OnInput k v ->
-            ( { model | userForm = FormData.setValue k v model.userForm }
+            ( { model | userForm = FormData.onInput k v model.userForm }
             , Cmd.none
             )
 
-        OnCheck k v bool ->
-            ( { model | userForm = FormData.toggleValue k v bool model.userForm }
+        OnCheck k bool ->
+            ( { model | userForm = FormData.onCheck k bool model.userForm }
             , Cmd.none
             )
+
+        Save user ->
+            ( model, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -151,71 +181,116 @@ type UserFields
     = Name
     | Age
     | Location
-    | Hobbies
+    | Hobbies Hobby
+
+
+type Hobby
+    = Soccer
+    | Football
+    | Basketball
+    | Crochet
+
+
+stringHobby : Hobby -> String
+stringHobby hobby =
+    case hobby of
+        Soccer ->
+            "Soccer"
+
+        Football ->
+            "Football"
+
+        Basketball ->
+            "Basketball"
+
+        Crochet ->
+            "Crochet"
 
 
 type alias User =
     { name : String
     , age : Int
     , location : String
-    , hobbies : List String
+    , hobbies : List Hobby
     }
 
 
-fromKey : UserFields -> Int
-fromKey f =
+stringUserFields : UserFields -> String
+stringUserFields f =
     case f of
         Name ->
-            1
+            "name"
 
         Age ->
-            2
+            "age"
 
         Location ->
-            3
+            "location"
 
-        Hobbies ->
-            4
-
-
-toKey : Int -> UserFields
-toKey int =
-    case int of
-        1 ->
-            Name
-
-        2 ->
-            Age
-
-        3 ->
-            Location
-
-        4 ->
-            Hobbies
-
-        _ ->
-            Name
+        Hobbies h ->
+            "hobbies " ++ stringHobby h
 
 
-parseData : List ( UserFields, String ) -> ( Maybe User, List ( UserFields, String ) )
-parseData list =
-    -- let
-    --     foldFields ( k, v ) maybeUser =
-    --         case k of
-    --             Name ->
-    --                 maybeUser
-    --
-    --             Age ->
-    --                 maybeUser
-    --
-    --             Location ->
-    --                 maybeUser
-    --
-    --             Hobbies ->
-    --                 maybeUser
-    -- in
-    -- List.foldl
-    --     foldFields
-    --     (Just { name = "", age = 0, location = "", hobbies = [] })
-    --     list
-    ( Nothing, [] )
+parseDontValidate : List ( UserFields, String ) -> ( Maybe User, List ( Maybe UserFields, String ) )
+parseDontValidate keyValueList =
+    let
+        initalUserWithErrors =
+            ( { name = ""
+              , age = 0
+              , location = ""
+              , hobbies = []
+              }
+            , [ ( Just Name, "cannot be blank" )
+              , ( Nothing, "must choose one hobby" )
+              ]
+            )
+
+        --
+        buildUserErrs ( k, s ) ( partUser, partErrs ) =
+            case k of
+                Name ->
+                    ( { partUser | name = s }
+                    , if s /= "" then
+                        List.filter (\( maybeK, _ ) -> maybeK /= Just k) partErrs
+
+                      else
+                        partErrs
+                    )
+
+                Age ->
+                    case String.toInt s of
+                        Just i ->
+                            ( { partUser | age = i }
+                            , if s /= "" then
+                                List.filter (\( maybeK, _ ) -> maybeK /= Just k) partErrs
+
+                              else
+                                partErrs
+                            )
+
+                        Nothing ->
+                            ( partUser, partErrs )
+
+                Location ->
+                    ( { partUser | location = s }
+                    , if s /= "" then
+                        List.filter (\( maybeK, _ ) -> maybeK /= Just k) partErrs
+
+                      else
+                        partErrs
+                    )
+
+                Hobbies h ->
+                    ( { partUser | hobbies = h :: partUser.hobbies }
+                    , List.filter (\( maybeK, _ ) -> maybeK /= Nothing) partErrs
+                    )
+
+        --
+        ( value, errs ) =
+            List.foldl buildUserErrs initalUserWithErrors keyValueList
+    in
+    if [] == errs then
+        ( Just { value | hobbies = List.reverse value.hobbies }, [] )
+
+    else
+        ( Nothing, errs )
