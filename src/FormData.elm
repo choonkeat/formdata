@@ -1,5 +1,5 @@
 module FormData exposing
-    ( FormData, init
+    ( FormData, init, Errors, errorsFrom, errorAt
     , value, onInput
     , isChecked, onCheck
     , parse
@@ -90,23 +90,23 @@ module FormData exposing
 
     model.userForm
         |> FormData.parse parseDontValidate
-    --> ( Nothing , [ ( Just Firstname, "cannot be blank"), ( Nothing, "must choose one hobby") ] )
+    --> ( Nothing , FormData.errorsFrom stringUserFields [ ( Just Firstname, "cannot be blank"), ( Nothing, "must choose one hobby") ] )
 
     model.userForm
         |> FormData.onInput Firstname "Alice"
         |> FormData.parse parseDontValidate
-    --> ( Nothing , [ ( Nothing, "must choose one hobby") ] )
+    --> ( Nothing , FormData.errorsFrom stringUserFields [ ( Nothing, "must choose one hobby") ] )
 
     model.userForm
         |> FormData.onInput Firstname "Alice"
         |> FormData.onCheck (Hobbies Football) True
         |> FormData.parse parseDontValidate
-    --> ( Just  { firstname = "Alice", hobbies = [Football] }, [ ] )
+    --> ( Just  { firstname = "Alice", hobbies = [Football] }, Nothing )
 
 
 ## Types
 
-@docs FormData, init
+@docs FormData, init, Errors, errorsFrom, errorAt
 
 
 ## Input
@@ -134,6 +134,7 @@ import Dict.Any exposing (AnyDict)
 type FormData k a
     = FormData
         { raw : AnyDict String k String
+        , fromKey : k -> String
         }
 
 
@@ -167,9 +168,10 @@ If there's an error, show it
         ]
 
 -}
-parse : (List ( k, String ) -> ( Maybe a, List ( Maybe k, err ) )) -> FormData k a -> ( Maybe a, List ( Maybe k, err ) )
-parse function (FormData { raw }) =
+parse : (List ( k, String ) -> ( Maybe a, List ( Maybe k, err ) )) -> FormData k a -> ( Maybe a, Maybe (Errors k err) )
+parse function (FormData { raw, fromKey }) =
     function (Dict.Any.toList raw)
+        |> Tuple.mapSecond (\errList -> errorsFrom fromKey errList)
 
 
 {-| The types parsed by Config will determine what types we are managing here
@@ -183,6 +185,7 @@ init : (k -> String) -> List ( k, String ) -> FormData k a
 init fromKey raw =
     FormData
         { raw = Dict.Any.fromList fromKey raw
+        , fromKey = fromKey
         }
 
 
@@ -276,3 +279,43 @@ onCheck k bool ((FormData formdata) as originalFormData) =
 isChecked : k -> FormData k a -> Bool
 isChecked k (FormData formdata) =
     Dict.Any.member k formdata.raw
+
+
+
+--
+
+
+type Errors k err
+    = Errors (AnyDict String k err) (Maybe err)
+
+
+errorsFrom : (k -> String) -> List ( Maybe k, err ) -> Maybe (Errors k err)
+errorsFrom fromKey list =
+    let
+        partition =
+            \( maybek, err ) ( tuples, errs ) ->
+                case maybek of
+                    Just k ->
+                        ( ( k, err ) :: tuples, errs )
+
+                    Nothing ->
+                        ( tuples, err :: errs )
+
+        ( justs, nothings ) =
+            List.foldl partition ( [], [] ) list
+    in
+    if List.isEmpty justs && List.isEmpty nothings then
+        Nothing
+
+    else
+        Just (Errors (Dict.Any.fromList fromKey justs) (List.head nothings))
+
+
+errorAt : Maybe k -> Errors k err -> Maybe err
+errorAt maybek (Errors anydict maybeErr) =
+    case maybek of
+        Just k ->
+            Dict.Any.get k anydict
+
+        Nothing ->
+            maybeErr
