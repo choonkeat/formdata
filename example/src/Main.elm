@@ -2,9 +2,11 @@ module Main exposing (..)
 
 import Browser
 import FormData exposing (FormData)
-import Html exposing (Html, button, div, input, label, option, p, pre, select, small, text)
+import Html exposing (Html, a, button, div, input, label, option, p, pre, select, small, text)
 import Html.Attributes exposing (checked, disabled, href, name, placeholder, rel, selected, type_, value)
 import Html.Events exposing (onBlur, onCheck, onClick, onFocus, onInput, onSubmit)
+import Process
+import Task
 
 
 main : Program Flags Model Msg
@@ -31,6 +33,7 @@ type Msg
     | OnBlur (Maybe UserFields)
     | OnCheck UserFields Bool
     | Save User
+    | Saved
 
 
 init : Flags -> ( Model, Cmd Msg )
@@ -45,10 +48,21 @@ init flags =
 view : Model -> Html Msg
 view model =
     let
-        ( maybeUser, errors ) =
+        ( dataUser, errors ) =
             FormData.parse parseDontValidate model.userForm
                 -- recommended, but not enforced, to only show errors for visited fields
                 |> Tuple.mapSecond (FormData.visitedErrors model.userForm)
+
+        ( submitAttr, submitLabel ) =
+            case dataUser of
+                FormData.Invalid ->
+                    ( disabled True, "Submit" )
+
+                FormData.Valid user ->
+                    ( onClick (Save user), "Submit" )
+
+                FormData.Submitting user ->
+                    ( disabled True, "Submitting..." )
     in
     div []
         [ Html.node "link"
@@ -162,22 +176,17 @@ view model =
                     text ""
             ]
         , p []
-            [ button
-                [ case maybeUser of
-                    Just user ->
-                        onSubmit (Save user)
-
-                    Nothing ->
-                        disabled True
-                ]
-                [ text "Submit" ]
+            [ button [ submitAttr ] [ text submitLabel ]
             ]
         , pre []
-            [ text ("FormData.parse parseDontValidate model.userForm\n--> " ++ Debug.toString ( maybeUser, errors ))
+            [ text ("FormData.parse parseDontValidate model.userForm\n--> " ++ Debug.toString ( dataUser, errors ))
             ]
         , pre []
             [ text ("model.userForm\n--> " ++ Debug.toString model)
             ]
+        , a [ href "https://github.com/choonkeat/formdata" ] [ text "Github" ]
+        , text " "
+        , a [ href "https://package.elm-lang.org/packages/choonkeat/formdata/latest" ] [ text "Package doc" ]
         ]
 
 
@@ -200,7 +209,15 @@ update msg model =
             )
 
         Save user ->
-            ( model, Cmd.none )
+            ( { model | userForm = FormData.onSubmit True model.userForm }
+            , Process.sleep 3000
+                |> Task.perform (always Saved)
+            )
+
+        Saved ->
+            ( { model | userForm = FormData.onSubmit False model.userForm }
+            , Cmd.none
+            )
 
 
 subscriptions : Model -> Sub Msg

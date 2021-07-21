@@ -8,24 +8,28 @@ Before submitting, we should try to obtain a value (and a list of errors) from o
 value, using a `parseDontValidate` function we supply
 
 ```elm
-( maybeUser, errors ) =
+( dataUser, errors ) =
     FormData.parse parseDontValidate model.userForm
         -- recommended, but not enforced, to only show errors for visited fields
         |> Tuple.mapSecond (FormData.visitedErrors model.userForm)
 ```
 
-If we get `maybeUser = Nothing`, disable the submit button. Otherwise, wire up the `onSubmit` handler
+We do a `case dataUser of` to decide how we want to manage our submit button
 
 ```elm
-button
-    [ case maybeUser of
-        Just user ->
-            onSubmit (Save user)
+let
+    ( submitAttr, submitLabel ) =
+        case dataUser of
+            FormData.Invalid ->
+                ( disabled True, "Submit" )
 
-        Nothing ->
-            disabled True
-    ]
-    [ text "Submit" ]
+            FormData.Valid user ->
+                ( onClick (Save user), "Submit" )
+
+            FormData.Submitting user ->
+                ( disabled True, "Submitting..." )
+in
+button [ submitAttr ] [ text submitLabel ]
 ```
 
 If there's an error, show it alongside the input field
@@ -67,6 +71,17 @@ update msg model =
 
         OnCheck k bool ->
             ( { model | userForm = FormData.onCheck k bool model.userForm }
+            , Cmd.none
+            )
+
+        Save user ->
+            ( { model | userForm = FormData.onSubmit True model.userForm }
+            , Process.sleep 3000 -- TODO: perform some real work
+                |> Task.perform (always Saved)
+            )
+
+        Saved ->
+            ( { model | userForm = FormData.onSubmit False model.userForm }
             , Cmd.none
             )
 ```

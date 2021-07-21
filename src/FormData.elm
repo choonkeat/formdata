@@ -1,5 +1,5 @@
 module FormData exposing
-    ( FormData, init, Errors, errorsFrom, errorAt
+    ( FormData, init, Data(..), onSubmit, Errors, errorsFrom, errorAt
     , value, onInput
     , isChecked, onCheck
     , parse
@@ -107,7 +107,7 @@ module FormData exposing
 
 ## Types
 
-@docs FormData, init, Errors, errorsFrom, errorAt
+@docs FormData, init, Data, onSubmit, Errors, errorsFrom, errorAt
 
 
 ## Input
@@ -145,7 +145,16 @@ type FormData k a
         { raw : AnyDict String k String
         , fromKey : k -> String
         , visited : List (Maybe k)
+        , submitting : Bool
         }
+
+
+{-| The 3 states your data can be in
+-}
+type Data a
+    = Invalid
+    | Valid a
+    | Submitting a
 
 
 {-| Before submitting, we should try to obtain a value (and a list of errors) from our FormData
@@ -178,10 +187,20 @@ If there's an error, show it
         ]
 
 -}
-parse : (List ( k, String ) -> ( Maybe a, List ( Maybe k, err ) )) -> FormData k a -> ( Maybe a, Errors k err )
+parse : (List ( k, String ) -> ( Maybe a, List ( Maybe k, err ) )) -> FormData k a -> ( Data a, Errors k err )
 parse function ((FormData { raw, fromKey }) as formdata) =
+    let
+        validData =
+            if isSubmitting formdata then
+                Submitting
+
+            else
+                Valid
+    in
     function (Dict.Any.toList raw)
-        |> Tuple.mapSecond (\errList -> errorsFrom fromKey errList)
+        |> Tuple.mapBoth
+            (\maybeData -> Maybe.withDefault Invalid (Maybe.map validData maybeData))
+            (\errList -> errorsFrom fromKey errList)
 
 
 {-| The types parsed by Config will determine what types we are managing here
@@ -197,6 +216,7 @@ init fromKey raw =
         { raw = Dict.Any.fromList fromKey raw
         , fromKey = fromKey
         , visited = []
+        , submitting = False
         }
 
 
@@ -382,3 +402,21 @@ visitedErrors (FormData formdata) (Errors anydict maybeErr) =
                 Nothing
     in
     Errors newDict newMaybeErr
+
+
+
+--
+
+
+{-| Toggles whether the FormData is submitting
+-}
+onSubmit : Bool -> FormData k a -> FormData k a
+onSubmit bool (FormData formdata) =
+    FormData { formdata | submitting = bool }
+
+
+{-| Checks if our FormData is submitting
+-}
+isSubmitting : FormData k a -> Bool
+isSubmitting (FormData { submitting }) =
+    submitting
