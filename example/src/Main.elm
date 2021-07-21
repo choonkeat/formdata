@@ -4,7 +4,7 @@ import Browser
 import FormData exposing (FormData)
 import Html exposing (Html, button, div, input, label, option, p, pre, select, small, text)
 import Html.Attributes exposing (checked, disabled, href, name, placeholder, rel, selected, type_, value)
-import Html.Events exposing (onCheck, onInput, onSubmit)
+import Html.Events exposing (onBlur, onCheck, onClick, onFocus, onInput, onSubmit)
 
 
 main : Program Flags Model Msg
@@ -28,6 +28,7 @@ type alias Flags =
 
 type Msg
     = OnInput UserFields String
+    | OnBlur (Maybe UserFields)
     | OnCheck UserFields Bool
     | Save User
 
@@ -46,6 +47,8 @@ view model =
     let
         ( maybeUser, errors ) =
             FormData.parse parseDontValidate model.userForm
+                -- recommended, but not enforced, to only show errors for visited fields
+                |> Tuple.mapSecond (FormData.visitedErrors model.userForm)
     in
     div []
         [ Html.node "link"
@@ -53,20 +56,44 @@ view model =
             , href "https://cdn.jsdelivr.net/npm/@exampledev/new.css@1.1.2/new.min.css"
             ]
             []
+        , Html.node "style" [] [ text "small { display: block; margin-top: -0.5em; font-size: 0.7em; color: red; }" ]
         , p []
-            [ input [ onInput (OnInput Name), type_ "text", placeholder "Name" ] []
-            , case List.head (List.filter (\( k, v ) -> k == Just Name) errors) of
-                Just ( _, err ) ->
-                    p [] [ small [] [ text err ] ]
+            [ input
+                [ onInput (OnInput Name)
+                , onBlur (OnBlur (Just Name))
+                , value (FormData.value Name model.userForm)
+                , type_ "text"
+                , placeholder "Name"
+                ]
+                []
+            , case FormData.errorAt (Just Name) errors of
+                Just err ->
+                    small [] [ text err ]
 
                 Nothing ->
                     text ""
             ]
         , p []
-            [ input [ onInput (OnInput Age), type_ "number", placeholder "Age" ] []
+            [ input
+                [ onInput (OnInput Age)
+                , onBlur (OnBlur (Just Age))
+                , value (FormData.value Age model.userForm)
+                , type_ "number"
+                , placeholder "Age"
+                ]
+                []
+            , case FormData.errorAt (Just Age) errors of
+                Just err ->
+                    small [] [ text err ]
+
+                Nothing ->
+                    text ""
             ]
         , p []
-            [ select [ onInput (OnInput Location) ]
+            [ select
+                [ onInput (OnInput Location)
+                , onBlur (OnBlur (Just Location))
+                ]
                 [ option [ value "" ] [ text " -- Location -- " ]
                 , option [ selected (FormData.value Location model.userForm == "Singapore") ] [ text "Singapore" ]
                 , option [ selected (FormData.value Location model.userForm == "US") ] [ text "US" ]
@@ -100,6 +127,7 @@ view model =
             [ label []
                 [ input
                     [ onCheck (OnCheck (Hobbies Soccer))
+                    , onClick (OnBlur Nothing)
                     , type_ "checkbox"
                     , checked (FormData.isChecked (Hobbies Soccer) model.userForm)
                     ]
@@ -109,6 +137,7 @@ view model =
             , label []
                 [ input
                     [ onCheck (OnCheck (Hobbies Basketball))
+                    , onClick (OnBlur Nothing)
                     , type_ "checkbox"
                     , checked (FormData.isChecked (Hobbies Basketball) model.userForm)
                     ]
@@ -118,15 +147,16 @@ view model =
             , label []
                 [ input
                     [ onCheck (OnCheck (Hobbies Crochet))
+                    , onClick (OnBlur Nothing)
                     , type_ "checkbox"
                     , checked (FormData.isChecked (Hobbies Crochet) model.userForm)
                     ]
                     []
                 , text " Crochet "
                 ]
-            , case List.head (List.filter (\( k, v ) -> k == Nothing) errors) of
-                Just ( _, err ) ->
-                    p [] [ small [] [ text err ] ]
+            , case FormData.errorAt Nothing errors of
+                Just err ->
+                    small [] [ text err ]
 
                 Nothing ->
                     text ""
@@ -156,6 +186,11 @@ update msg model =
     case msg of
         OnInput k v ->
             ( { model | userForm = FormData.onInput k v model.userForm }
+            , Cmd.none
+            )
+
+        OnBlur k ->
+            ( { model | userForm = FormData.onVisited k model.userForm }
             , Cmd.none
             )
 
@@ -269,7 +304,7 @@ parseDontValidate keyValueList =
                             )
 
                         Nothing ->
-                            ( partUser, partErrs )
+                            ( partUser, ( Just k, "is not a number" ) :: partErrs )
 
                 Location ->
                     ( { partUser | location = s }

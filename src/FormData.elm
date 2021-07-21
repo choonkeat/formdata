@@ -3,6 +3,7 @@ module FormData exposing
     , value, onInput
     , isChecked, onCheck
     , parse
+    , onVisited, hadVisited, visitedErrors
     )
 
 {-| Using `Dict.Any` and a few helper functions to manage the state of a form
@@ -90,18 +91,18 @@ module FormData exposing
 
     model.userForm
         |> FormData.parse parseDontValidate
-    --> ( Nothing , FormData.errorsFrom stringUserFields [ ( Just Firstname, "cannot be blank"), ( Nothing, "must choose one hobby") ] )
+    --> ( Nothing , errorsFrom stringUserFields [ ( Just Firstname, "cannot be blank"), ( Nothing, "must choose one hobby") ] )
 
     model.userForm
         |> FormData.onInput Firstname "Alice"
         |> FormData.parse parseDontValidate
-    --> ( Nothing , FormData.errorsFrom stringUserFields [ ( Nothing, "must choose one hobby") ] )
+    --> ( Nothing , errorsFrom stringUserFields [ ( Nothing, "must choose one hobby") ] )
 
     model.userForm
         |> FormData.onInput Firstname "Alice"
         |> FormData.onCheck (Hobbies Football) True
         |> FormData.parse parseDontValidate
-    --> ( Just  { firstname = "Alice", hobbies = [Football] }, Nothing )
+    --> ( Just  { firstname = "Alice", hobbies = [Football] }, errorsFrom stringUserFields [] )
 
 
 ## Types
@@ -123,6 +124,14 @@ module FormData exposing
 
 @docs parse
 
+
+## Extra
+
+in order to _not_ show errors which user hasn't attempted, it would be nice
+to track which inputs were visited
+
+@docs onVisited, hadVisited, visitedErrors
+
 -}
 
 import Dict exposing (Dict)
@@ -135,6 +144,7 @@ type FormData k a
     = FormData
         { raw : AnyDict String k String
         , fromKey : k -> String
+        , visited : List (Maybe k)
         }
 
 
@@ -168,8 +178,8 @@ If there's an error, show it
         ]
 
 -}
-parse : (List ( k, String ) -> ( Maybe a, List ( Maybe k, err ) )) -> FormData k a -> ( Maybe a, Maybe (Errors k err) )
-parse function (FormData { raw, fromKey }) =
+parse : (List ( k, String ) -> ( Maybe a, List ( Maybe k, err ) )) -> FormData k a -> ( Maybe a, Errors k err )
+parse function ((FormData { raw, fromKey }) as formdata) =
     function (Dict.Any.toList raw)
         |> Tuple.mapSecond (\errList -> errorsFrom fromKey errList)
 
@@ -186,6 +196,7 @@ init fromKey raw =
     FormData
         { raw = Dict.Any.fromList fromKey raw
         , fromKey = fromKey
+        , visited = []
         }
 
 
@@ -281,15 +292,51 @@ isChecked k (FormData formdata) =
     Dict.Any.member k formdata.raw
 
 
+{-| can be used with `onBlur` to track which inputs were visited
+
+    view formdata =
+        input
+            [ onBlur (OnUserFormBlur Firstname)
+            ]
+            []
+
+    update msg model =
+        case msg of
+            OnUserFormBlur k ->
+                ( { model | userForm = formdata.onVisited k model.userForm }
+                , Cmd.none
+                )
+
+-}
+onVisited : Maybe k -> FormData k a -> FormData k a
+onVisited k ((FormData formdata) as nochange) =
+    if List.member k formdata.visited then
+        nochange
+
+    else
+        FormData { formdata | visited = k :: formdata.visited }
+
+
+{-| inquire which inputs were visited
+-}
+hadVisited : Maybe k -> FormData k a -> Bool
+hadVisited k (FormData formdata) =
+    List.member k formdata.visited
+
+
 
 --
 
 
+{-| Holds error values for faster lookup
+-}
 type Errors k err
     = Errors (AnyDict String k err) (Maybe err)
 
 
-errorsFrom : (k -> String) -> List ( Maybe k, err ) -> Maybe (Errors k err)
+{-| Builds Errors value from List; used inside FormData.parse
+-}
+errorsFrom : (k -> String) -> List ( Maybe k, err ) -> Errors k err
 errorsFrom fromKey list =
     let
         partition =
@@ -304,13 +351,11 @@ errorsFrom fromKey list =
         ( justs, nothings ) =
             List.foldl partition ( [], [] ) list
     in
-    if List.isEmpty justs && List.isEmpty nothings then
-        Nothing
-
-    else
-        Just (Errors (Dict.Any.fromList fromKey justs) (List.head nothings))
+    Errors (Dict.Any.fromList fromKey justs) (List.head nothings)
 
 
+{-| Lookup if a Maybe k has error
+-}
 errorAt : Maybe k -> Errors k err -> Maybe err
 errorAt maybek (Errors anydict maybeErr) =
     case maybek of
@@ -319,3 +364,21 @@ errorAt maybek (Errors anydict maybeErr) =
 
         Nothing ->
             maybeErr
+
+
+{-| Filter Errors value against the visited tracker
+-}
+visitedErrors : FormData k a -> Errors k err -> Errors k err
+visitedErrors (FormData formdata) (Errors anydict maybeErr) =
+    let
+        newDict =
+            Dict.Any.filter (\k v -> List.member (Just k) formdata.visited) anydict
+
+        newMaybeErr =
+            if List.member Nothing formdata.visited then
+                maybeErr
+
+            else
+                Nothing
+    in
+    Errors newDict newMaybeErr
