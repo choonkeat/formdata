@@ -184,8 +184,8 @@ view model =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        OnInput k v ->
-            ( { model | userForm = FormData.onInput k v model.userForm }
+        OnInput k string ->
+            ( { model | userForm = FormData.onInput k string model.userForm }
             , Cmd.none
             )
 
