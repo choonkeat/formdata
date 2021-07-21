@@ -3,7 +3,7 @@
     "name": "choonkeat/formdata",
     "summary": "Parse, don't validate form data",
     "license": "MIT",
-    "version": "0.0.0",
+    "version": "1.0.0",
     "exposed-modules": [
         "FormData"
     ],
