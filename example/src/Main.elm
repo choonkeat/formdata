@@ -2,8 +2,8 @@ module Main exposing (..)
 
 import Browser
 import FormData exposing (FormData)
-import Html exposing (Html, a, button, div, input, label, option, p, pre, select, small, text)
-import Html.Attributes exposing (checked, disabled, href, name, placeholder, rel, selected, type_, value)
+import Html exposing (Html, a, button, div, fieldset, form, input, label, li, option, p, pre, select, small, sup, text, ul)
+import Html.Attributes exposing (checked, class, disabled, href, name, placeholder, rel, selected, style, type_, value)
 import Html.Events exposing (onBlur, onCheck, onClick, onFocus, onInput, onSubmit)
 import Process
 import Task
@@ -20,7 +20,15 @@ main =
 
 
 type alias Model =
-    { userForm : FormData UserFields User
+    { userForm : FormData FormField User
+    }
+
+
+type alias User =
+    { name : String
+    , age : Int
+    , location : String
+    , hobbies : List Hobby
     }
 
 
@@ -29,9 +37,9 @@ type alias Flags =
 
 
 type Msg
-    = OnInput UserFields String
-    | OnBlur (Maybe UserFields)
-    | OnCheck UserFields Bool
+    = OnInput FormField String
+    | OnBlur (Maybe FormField)
+    | OnCheck FormField Bool
     | Save User
     | Saved
 
@@ -39,7 +47,7 @@ type Msg
 init : Flags -> ( Model, Cmd Msg )
 init flags =
     ( { userForm =
-            FormData.init stringUserFields []
+            FormData.init stringFormField []
       }
     , Cmd.none
     )
@@ -53,16 +61,16 @@ view model =
                 -- recommended, but not enforced, to only show errors for visited fields
                 |> Tuple.mapSecond (FormData.visitedErrors model.userForm)
 
-        ( submitAttr, submitLabel ) =
+        ( formAttr, submitButtonAttr, submitButtonLabel ) =
             case dataUser of
                 FormData.Invalid ->
-                    ( disabled True, "Submit" )
+                    ( disabled True, disabled True, "Submit" )
 
                 FormData.Valid user ->
-                    ( onClick (Save user), "Submit" )
+                    ( onSubmit (Save user), onClick (Save user), "Submit" )
 
                 FormData.Submitting user ->
-                    ( disabled True, "Submitting..." )
+                    ( disabled True, disabled True, "Submitting..." )
     in
     div []
         [ Html.node "link"
@@ -70,113 +78,164 @@ view model =
             , href "https://cdn.jsdelivr.net/npm/@exampledev/new.css@1.1.2/new.min.css"
             ]
             []
-        , Html.node "style" [] [ text "small { display: block; margin-top: -0.5em; font-size: 0.7em; color: red; }" ]
-        , p []
-            [ input
-                [ onInput (OnInput Name)
-                , onBlur (OnBlur (Just Name))
-                , value (FormData.value Name model.userForm)
-                , type_ "text"
-                , placeholder "Name"
+        , Html.node "style"
+            []
+            [ text ".error { color: red; }"
+            , text "small { display: block; margin-top: -0.5em; font-size: 0.7em; }"
+            , text "ul { font-size: 0.8em; }"
+            , text "label.checkbox, label.radio { display: block; }"
+            ]
+        , ul []
+            [ li [] [ text "Name and Hobbies are required" ]
+            , li [] [ text "Age is optional but has to be a positive number" ]
+            , li []
+                [ text "Error messages will only appear after you've answered a field but gave an invalid value"
+                , ul []
+                    [ li [] [ text "Not in the beginning" ]
+                    , li [] [ text "Not before you finish filling up a field" ]
+                    ]
                 ]
-                []
-            , case FormData.errorAt (Just Name) errors of
-                Just err ->
-                    small [] [ text err ]
+            , li [] [ text "Once the form is valid, the Submit button will be enabled" ]
+            , li [] [ text "Once you submit, the Submit button will be disabled until the submission completes" ]
+            ]
+        , form [ formAttr ]
+            [ fieldset []
+                [ p []
+                    [ label []
+                        [ text "Hobbies"
+                        , sup [] [ text "*" ]
+                        , p []
+                            [ label [ class "checkbox" ]
+                                [ input
+                                    [ onCheck (OnCheck (Hobbies Soccer))
+                                    , onClick (OnBlur Nothing)
+                                    , type_ "checkbox"
+                                    , checked (FormData.isChecked (Hobbies Soccer) model.userForm)
+                                    ]
+                                    []
+                                , text " Soccer "
+                                ]
+                            , label [ class "checkbox" ]
+                                [ input
+                                    [ onCheck (OnCheck (Hobbies Basketball))
+                                    , onClick (OnBlur Nothing)
+                                    , type_ "checkbox"
+                                    , checked (FormData.isChecked (Hobbies Basketball) model.userForm)
+                                    ]
+                                    []
+                                , text " Basketball "
+                                ]
+                            , label [ class "checkbox" ]
+                                [ input
+                                    [ onCheck (OnCheck (Hobbies Crochet))
+                                    , onClick (OnBlur Nothing)
+                                    , type_ "checkbox"
+                                    , checked (FormData.isChecked (Hobbies Crochet) model.userForm)
+                                    ]
+                                    []
+                                , text " Crochet "
+                                ]
+                            , case FormData.errorAt Nothing errors of
+                                Just err ->
+                                    small [ class "error" ] [ text err ]
 
-                Nothing ->
-                    text ""
-            ]
-        , p []
-            [ input
-                [ onInput (OnInput Age)
-                , onBlur (OnBlur (Just Age))
-                , value (FormData.value Age model.userForm)
-                , type_ "number"
-                , placeholder "Age"
-                ]
-                []
-            , case FormData.errorAt (Just Age) errors of
-                Just err ->
-                    small [] [ text err ]
+                                Nothing ->
+                                    text ""
+                            ]
+                        ]
+                    ]
+                , p []
+                    [ label []
+                        [ text "Name"
+                        , sup [] [ text "*" ]
+                        , p []
+                            [ input
+                                [ onInput (OnInput Name)
+                                , onBlur (OnBlur (Just Name))
+                                , value (FormData.value Name model.userForm)
+                                , type_ "text"
+                                , placeholder "Name"
+                                ]
+                                []
+                            , case FormData.errorAt (Just Name) errors of
+                                Just err ->
+                                    small [ class "error" ] [ text err ]
 
-                Nothing ->
-                    text ""
-            ]
-        , p []
-            [ select
-                [ onInput (OnInput Location)
-                , onBlur (OnBlur (Just Location))
-                ]
-                [ option [ value "" ] [ text " -- Location -- " ]
-                , option [ selected (FormData.value Location model.userForm == "Singapore") ] [ text "Singapore" ]
-                , option [ selected (FormData.value Location model.userForm == "US") ] [ text "US" ]
-                ]
-            ]
-        , p []
-            [ label []
-                [ input
-                    [ onInput (OnInput Location)
-                    , value "Singapore"
-                    , type_ "radio"
-                    , checked (FormData.value Location model.userForm == "Singapore")
-                    , name "Location"
+                                Nothing ->
+                                    text ""
+                            ]
+                        ]
                     ]
-                    []
-                , text " Singapore "
-                ]
-            , label []
-                [ input
-                    [ onInput (OnInput Location)
-                    , value "US"
-                    , type_ "radio"
-                    , checked (FormData.value Location model.userForm == "US")
-                    , name "Location"
-                    ]
-                    []
-                , text " US "
-                ]
-            ]
-        , p []
-            [ label []
-                [ input
-                    [ onCheck (OnCheck (Hobbies Soccer))
-                    , onClick (OnBlur Nothing)
-                    , type_ "checkbox"
-                    , checked (FormData.isChecked (Hobbies Soccer) model.userForm)
-                    ]
-                    []
-                , text " Soccer "
-                ]
-            , label []
-                [ input
-                    [ onCheck (OnCheck (Hobbies Basketball))
-                    , onClick (OnBlur Nothing)
-                    , type_ "checkbox"
-                    , checked (FormData.isChecked (Hobbies Basketball) model.userForm)
-                    ]
-                    []
-                , text " Basketball "
-                ]
-            , label []
-                [ input
-                    [ onCheck (OnCheck (Hobbies Crochet))
-                    , onClick (OnBlur Nothing)
-                    , type_ "checkbox"
-                    , checked (FormData.isChecked (Hobbies Crochet) model.userForm)
-                    ]
-                    []
-                , text " Crochet "
-                ]
-            , case FormData.errorAt Nothing errors of
-                Just err ->
-                    small [] [ text err ]
+                , p []
+                    [ label []
+                        [ text "Age"
+                        , p []
+                            [ input
+                                [ onInput (OnInput Age)
+                                , onBlur (OnBlur (Just Age))
+                                , value (FormData.value Age model.userForm)
+                                , type_ "number"
+                                , placeholder "Age"
+                                ]
+                                []
+                            , case FormData.errorAt (Just Age) errors of
+                                Just err ->
+                                    small [ class "error" ] [ text err ]
 
-                Nothing ->
-                    text ""
-            ]
-        , p []
-            [ button [ submitAttr ] [ text submitLabel ]
+                                Nothing ->
+                                    text ""
+                            ]
+                        ]
+                    ]
+                , p []
+                    [ label []
+                        [ text "Location"
+                        , p []
+                            [ select
+                                [ onInput (OnInput Location)
+                                , onBlur (OnBlur (Just Location))
+                                ]
+                                [ option [ value "" ] [ text " -- Location -- " ]
+                                , option [ selected (FormData.value Location model.userForm == "Singapore") ] [ text "Singapore" ]
+                                , option [ selected (FormData.value Location model.userForm == "US") ] [ text "US" ]
+                                ]
+                            ]
+                        ]
+                    ]
+                , p []
+                    [ label []
+                        [ text "Location"
+                        , p []
+                            [ label [ class "radio" ]
+                                [ input
+                                    [ onInput (OnInput Location)
+                                    , value "Singapore"
+                                    , type_ "radio"
+                                    , checked (FormData.value Location model.userForm == "Singapore")
+                                    , name "Location"
+                                    ]
+                                    []
+                                , text " Singapore "
+                                ]
+                            , label [ class "radio" ]
+                                [ input
+                                    [ onInput (OnInput Location)
+                                    , value "US"
+                                    , type_ "radio"
+                                    , checked (FormData.value Location model.userForm == "US")
+                                    , name "Location"
+                                    ]
+                                    []
+                                , text " US "
+                                ]
+                            , small [] [ text "the model value backing this Location field is the same as the <select> Location field above" ]
+                            ]
+                        ]
+                    ]
+                , p []
+                    [ button [ submitButtonAttr ] [ text submitButtonLabel ]
+                    ]
+                ]
             ]
         , pre []
             [ text ("FormData.parse parseDontValidate model.userForm\n--> " ++ Debug.toString ( dataUser, errors ))
@@ -226,10 +285,10 @@ subscriptions model =
 
 
 
---
+-- TYPES FOR FORMDATA
 
 
-type UserFields
+type FormField
     = Name
     | Age
     | Location
@@ -259,16 +318,8 @@ stringHobby hobby =
             "Crochet"
 
 
-type alias User =
-    { name : String
-    , age : Int
-    , location : String
-    , hobbies : List Hobby
-    }
-
-
-stringUserFields : UserFields -> String
-stringUserFields f =
+stringFormField : FormField -> String
+stringFormField f =
     case f of
         Name ->
             "name"
@@ -283,7 +334,11 @@ stringUserFields f =
             "hobbies " ++ stringHobby h
 
 
-parseDontValidate : List ( UserFields, String ) -> ( Maybe User, List ( Maybe UserFields, String ) )
+
+-- MAIN LOGIC TO WRITE
+
+
+parseDontValidate : List ( FormField, String ) -> ( Maybe User, List ( Maybe FormField, String ) )
 parseDontValidate keyValueList =
     let
         initalUserWithErrors =
@@ -313,11 +368,11 @@ parseDontValidate keyValueList =
                     case String.toInt s of
                         Just i ->
                             ( { partUser | age = i }
-                            , if s /= "" then
+                            , if i > 0 then
                                 List.filter (\( maybeK, _ ) -> maybeK /= Just k) partErrs
 
                               else
-                                partErrs
+                                ( Just k, "must be a positive number" ) :: partErrs
                             )
 
                         Nothing ->
