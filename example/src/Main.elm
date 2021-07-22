@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Browser
 import FormData exposing (FormData)
-import Html exposing (Html, a, button, div, fieldset, form, input, label, li, option, p, pre, select, small, sup, text, ul)
+import Html exposing (Html, a, button, code, div, fieldset, form, input, label, li, option, p, pre, select, small, sup, text, ul)
 import Html.Attributes exposing (checked, class, disabled, href, name, placeholder, rel, selected, style, type_, value)
 import Html.Events exposing (onBlur, onCheck, onClick, onFocus, onInput, onSubmit)
 import Process
@@ -241,11 +241,17 @@ view model =
                     ]
                 ]
             ]
-        , pre []
-            [ text ("FormData.parse parseDontValidate model.userForm\n--> " ++ Debug.toString ( dataUser, errors ))
-            ]
+        , small [] [ text "model.userForm" ]
         , pre []
             [ text ("model.userForm\n--> " ++ Debug.toString model)
+            ]
+        , small [] [ text "raw return value from `parseDontValidate`" ]
+        , pre []
+            [ text ("FormData.parse parseDontValidate model.userForm\n--> " ++ Debug.toString (FormData.parse parseDontValidate model.userForm))
+            ]
+        , small [] [ text "filtered return value from `parseDontValidate`; no errors for unvisited fields" ]
+        , pre []
+            [ text ("FormData.parse parseDontValidate model.userForm\n    |> Tuple.mapSecond (FormData.visitedErrors model.userForm)\n--> " ++ Debug.toString ( dataUser, errors ))
             ]
         , a [ href "https://github.com/choonkeat/formdata" ] [ text "Github" ]
         , text " "
