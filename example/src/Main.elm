@@ -89,14 +89,18 @@ view model =
             [ li [] [ text "Name and Hobbies are required" ]
             , li [] [ text "Age is optional but has to be a positive number" ]
             , li []
-                [ text "Error messages will only appear after you've answered a field but gave an invalid value"
+                [ text "Error messages will only appear after you've answered a field with an invalid value"
                 , ul []
-                    [ li [] [ text "Not in the beginning" ]
-                    , li [] [ text "Not before you finish filling up a field" ]
+                    [ li [] [ text "will NOT appear before you start" ]
+                    , li [] [ text "will NOT appear until you've answered a field" ]
                     ]
                 ]
             , li [] [ text "Once the form is valid, the Submit button will be enabled" ]
-            , li [] [ text "Once you submit, the Submit button will be disabled until the submission completes" ]
+            , li []
+                [ text "When you submit, the Submit button will be disabled until submission completes"
+                , ul []
+                    [ li [] [ text "in this demo, it's just a sleep of 3 seconds" ] ]
+                ]
             ]
         , form [ formAttr ]
             [ fieldset []
