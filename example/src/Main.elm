@@ -2,8 +2,8 @@ module Main exposing (..)
 
 import Browser
 import FormData exposing (FormData)
-import Html exposing (Html, a, button, code, div, fieldset, form, input, label, li, option, p, pre, select, small, sup, text, ul)
-import Html.Attributes exposing (checked, class, disabled, href, name, placeholder, rel, selected, style, type_, value)
+import Html exposing (Html, a, button, code, div, em, fieldset, form, input, label, li, option, p, pre, select, small, sup, text, ul)
+import Html.Attributes exposing (checked, class, disabled, href, name, placeholder, rel, selected, style, title, type_, value)
 import Html.Events exposing (onBlur, onCheck, onClick, onFocus, onInput, onSubmit)
 import Process
 import Task
@@ -85,21 +85,32 @@ view model =
             , text "ul { font-size: 0.8em; }"
             , text "label.checkbox, label.radio { display: block; }"
             ]
+        , p []
+            [ text "We can get a well behaved html form by just writing a "
+            , a [ href "https://github.com/choonkeat/formdata" ] [ code [] [ text "parseDontValidate" ] ]
+            , text " function."
+            ]
+        , p []
+            [ text "But what is 'well behaved'?"
+            ]
         , ul []
-            [ li [] [ text "Name and Hobbies are required" ]
-            , li [] [ text "Age is optional but has to be a positive number" ]
-            , li []
-                [ text "Error messages will only appear after you've answered a field with an invalid value"
+            [ li []
+                [ text "supports Required and Optional fields"
                 , ul []
-                    [ li [] [ text "will NOT appear before you start" ]
-                    , li [] [ text "will NOT appear until you've answered a field" ]
+                    [ li [] [ text "Name and Hobbies are required in this demo" ]
+                    , li [] [ text "Age is optional but has to be a positive number" ]
                     ]
                 ]
-            , li [] [ text "Once the form is valid, the Submit button will be enabled" ]
             , li []
-                [ text "When you submit, the Submit button will be disabled until submission completes"
-                , ul []
-                    [ li [] [ text "in this demo, it's just a sleep of 3 seconds" ] ]
+                [ text "Error messages will only appear "
+                , em [] [ text "after" ]
+                , text " you've answered a field with an invalid value"
+                ]
+            , li []
+                [ text "Once the form is valid, the Submit button will be enabled and pressing Enter works too"
+                ]
+            , li []
+                [ text "Once submitted, the Submit button will be disabled until processing completes"
                 ]
             ]
         , form [ formAttr ]
@@ -200,8 +211,9 @@ view model =
                                 , onBlur (OnBlur (Just Location))
                                 ]
                                 [ option [ value "" ] [ text " -- Location -- " ]
-                                , option [ selected (FormData.value Location model.userForm == "Singapore") ] [ text "Singapore" ]
-                                , option [ selected (FormData.value Location model.userForm == "US") ] [ text "US" ]
+                                , option [ selected (FormData.value Location model.userForm == "Here") ] [ text "Here" ]
+                                , option [ selected (FormData.value Location model.userForm == "There") ] [ text "There" ]
+                                , option [ selected (FormData.value Location model.userForm == "Everywhere") ] [ text "Everywhere" ]
                                 ]
                             ]
                         ]
@@ -213,26 +225,37 @@ view model =
                             [ label [ class "radio" ]
                                 [ input
                                     [ onInput (OnInput Location)
-                                    , value "Singapore"
+                                    , value "Here"
                                     , type_ "radio"
-                                    , checked (FormData.value Location model.userForm == "Singapore")
+                                    , checked (FormData.value Location model.userForm == "Here")
                                     , name "Location"
                                     ]
                                     []
-                                , text " Singapore "
+                                , text " Here "
                                 ]
                             , label [ class "radio" ]
                                 [ input
                                     [ onInput (OnInput Location)
-                                    , value "US"
+                                    , value "There"
                                     , type_ "radio"
-                                    , checked (FormData.value Location model.userForm == "US")
+                                    , checked (FormData.value Location model.userForm == "There")
                                     , name "Location"
                                     ]
                                     []
-                                , text " US "
+                                , text " There "
                                 ]
-                            , small [] [ text "the model value backing this Location field is the same as the <select> Location field above" ]
+                            , label [ class "radio" ]
+                                [ input
+                                    [ onInput (OnInput Location)
+                                    , value "Everywhere"
+                                    , type_ "radio"
+                                    , checked (FormData.value Location model.userForm == "Everywhere")
+                                    , name "Location"
+                                    ]
+                                    []
+                                , text " Everywhere "
+                                ]
+                            , small [] [ text "the state backing this Location field is the same as the <select> Location field above; demonstrating a sync." ]
                             ]
                         ]
                     ]
@@ -240,18 +263,6 @@ view model =
                     [ button [ submitButtonAttr ] [ text submitButtonLabel ]
                     ]
                 ]
-            ]
-        , small [] [ text "model.userForm" ]
-        , pre []
-            [ text ("model.userForm\n--> " ++ Debug.toString model)
-            ]
-        , small [] [ text "raw return value from `parseDontValidate`" ]
-        , pre []
-            [ text ("FormData.parse parseDontValidate model.userForm\n--> " ++ Debug.toString (FormData.parse parseDontValidate model.userForm))
-            ]
-        , small [] [ text "filtered return value from `parseDontValidate`; no errors for unvisited fields" ]
-        , pre []
-            [ text ("FormData.parse parseDontValidate model.userForm\n    |> Tuple.mapSecond (FormData.visitedErrors model.userForm)\n--> " ++ Debug.toString ( dataUser, errors ))
             ]
         , a [ href "https://github.com/choonkeat/formdata" ] [ text "Github" ]
         , text " "
@@ -279,7 +290,7 @@ update msg model =
 
         Save user ->
             ( { model | userForm = FormData.onSubmit True model.userForm }
-            , Process.sleep 3000
+            , Process.sleep 1500
                 |> Task.perform (always Saved)
             )
 
