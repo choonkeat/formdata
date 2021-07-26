@@ -95,7 +95,7 @@ Do a `case dataUser of` to manage our `form` element and submit `button` attribu
                 ( disabled True, disabled True, "Submitting..." )
 in
 form [ formAttr ]
-    [ -- form fields elided (see below)
+    [ -- form fields elided (see above)
       button [ submitButtonAttr ] [ text submitButtonLabel ]
     ]
 ```
