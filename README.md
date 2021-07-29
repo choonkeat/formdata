@@ -38,9 +38,9 @@ And our `update` function hand off form state update to `FormData` helper functi
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-    
+
         -- FormData standard wiring
-        
+
         OnInput k string ->
             ( { model | userForm = FormData.onInput k string model.userForm }
             , Cmd.none
@@ -89,7 +89,7 @@ Do a `case dataUser of` to manage our `form` element and submit `button` attribu
                 ( disabled True, disabled True, "Submit" )
 
             FormData.Valid user ->
-                ( onSubmit (Save user), onClick (Save user), "Submit" )
+                ( onSubmit (Save user), disabled False, "Submit" )
 
             FormData.Submitting user ->
                 ( disabled True, disabled True, "Submitting..." )

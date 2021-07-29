@@ -67,7 +67,7 @@ view model =
                     ( disabled True, disabled True, "Submit" )
 
                 FormData.Valid user ->
-                    ( onSubmit (Save user), onClick (Save user), "Submit" )
+                    ( onSubmit (Save user), disabled False, "Submit" )
 
                 FormData.Submitting user ->
                     ( disabled True, disabled True, "Submitting..." )
