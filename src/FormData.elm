@@ -3,7 +3,7 @@ module FormData exposing
     , value, onInput
     , isChecked, onCheck
     , parse
-    , onVisited, hadVisited, visitedErrors
+    , onVisited, hadVisited, visitedErrors, keyValues
     )
 
 {-| Using `Dict.Any` and a few helper functions to manage the state of a form
@@ -130,7 +130,7 @@ module FormData exposing
 in order to _not_ show errors which user hasn't attempted, it would be nice
 to track which inputs were visited
 
-@docs onVisited, hadVisited, visitedErrors
+@docs onVisited, hadVisited, visitedErrors, keyValues
 
 -}
 
@@ -420,3 +420,20 @@ onSubmit bool (FormData formdata) =
 isSubmitting : FormData k a -> Bool
 isSubmitting (FormData { submitting }) =
     submitting
+
+
+
+--
+
+
+{-| Returns the form state as a `List` of `(k, String)` tuple
+
+This is the data that
+
+  - is accepted by the `init` function
+  - `parse` will supply to your `parseDontValidate` function
+
+-}
+keyValues : FormData k a -> List ( k, String )
+keyValues (FormData { raw }) =
+    Dict.Any.toList raw
